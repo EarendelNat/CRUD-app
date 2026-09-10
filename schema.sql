@@ -44,6 +44,22 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
 
+-- Lets every session belonging to one person be revoked in a single statement,
+-- which is what you want the moment an account is suspected compromised.
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
+-- Failed login and signup attempts, counted per source IP and per target email.
+-- This is what stops someone grinding passwords or guessing the invite code;
+-- see worker/throttle.js. Rows are transient and purged after a day.
+CREATE TABLE IF NOT EXISTS auth_throttle (
+  key          TEXT PRIMARY KEY,   -- 'ip:1.2.3.4' or 'subject:someone@example.com'
+  fails        INTEGER NOT NULL DEFAULT 0,
+  window_start TEXT NOT NULL DEFAULT (datetime('now')),
+  locked_until TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_throttle_window ON auth_throttle(window_start);
+
 -- The one social action: a clap for someone, at most one per person per week.
 CREATE TABLE IF NOT EXISTS cheers (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
