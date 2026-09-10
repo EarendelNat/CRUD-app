@@ -1,17 +1,24 @@
 {
-  "name": "steptrack-ten",
-  "version": "1.0.0",
+  "name": "step-race",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "A weekly step-count race for a group of ten people",
-  "engines": { "node": ">=22.5.0" },
+  "description": "A weekly step-count race for a group of ten, on Cloudflare Workers + D1",
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning server/index.js",
-    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
-    "seed": "node --disable-warning=ExperimentalWarning scripts/seed.js",
-    "reset": "node --disable-warning=ExperimentalWarning scripts/seed.js --reset"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "seed": "node scripts/seed.mjs",
+    "db:create": "wrangler d1 create step-race",
+    "db:init": "wrangler d1 execute step-race --file=./schema.sql --local",
+    "db:init:remote": "wrangler d1 execute step-race --file=./schema.sql --remote",
+    "db:reset": "wrangler d1 execute step-race --local --command \"DROP TABLE IF EXISTS cheers; DROP TABLE IF EXISTS sessions; DROP TABLE IF EXISTS step_entries; DROP TABLE IF EXISTS users; DROP TABLE IF EXISTS meta;\" && npm run db:init",
+    "tail": "wrangler tail"
   },
-  "dependencies": {
-    "express": "^5.1.0"
+  "devDependencies": {
+    "wrangler": "^4.130.0"
+  },
+  "allowScripts": {
+    "workerd@1.20260908.1": true,
+    "esbuild@0.28.1": true
   }
 }

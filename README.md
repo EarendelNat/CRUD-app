@@ -7,78 +7,122 @@ your own pace target, and one group goal that everybody's steps feed into.
 The week resets every Monday, so there are fifty-two chances to win a year
 rather than one.
 
-## Running it
+Runs on **Cloudflare Workers + D1**. Both have free tiers that comfortably cover
+ten people, and D1 is SQLite, so there is a real relational database behind it.
 
-Needs Node 22.5 or newer (it uses the built-in `node:sqlite`, so there is
-nothing to compile and no database server to install).
+## Running it locally
 
 ```bash
 npm install
-npm run seed     # optional: ten demo members with two weeks of steps
-npm start        # http://localhost:3000
+npm run db:init     # create the local D1 tables
+npm run dev         # http://127.0.0.1:8787
+npm run seed        # optional: ten demo members, two weeks of steps
 ```
 
+`npm run dev` is `wrangler dev`, which runs the real Workers runtime and a real
+local SQLite database on your machine — no Cloudflare account needed to develop.
+
 Demo accounts are `aisyah@example.com` … `jonas@example.com`, all with the
-password `password123`. `npm run reset` wipes and re-seeds.
+password `password123`. `npm run db:reset` drops the local tables and recreates
+them.
 
-For your real group: skip the seed, start the server, and have everyone visit
-the URL and pick **Join the group**. They'll need the invite code — printed in
-the console at startup, `STEP2026` unless you change it.
-
-## Configuration
-
-Copy `.env.example` to `.env`. Everything has a working default.
-
-| Variable | Default | What it does |
-| --- | --- | --- |
-| `PORT` | `3000` | Port to listen on |
-| `INVITE_CODE` | `STEP2026` | Code required to join the group |
-| `MAX_MEMBERS` | `10` | Hard cap on group size |
-| `APP_TZ` | `Asia/Singapore` | Decides "what day is it" and when the week rolls over |
-| `DB_PATH` | `./data/app.db` | Where the SQLite file lives |
-
-`APP_TZ` matters more than it looks. Without it a server in UTC would roll the
-week over at 8am Monday for a group in Singapore.
+For your real group: skip the seed, and have everyone visit the deployed URL and
+pick **Join the group**. They'll need the invite code.
 
 ## Deploying
 
-`render.yaml` is a ready Render blueprint: **New → Blueprint** in the Render
-dashboard, point it at this repo, and enter an `INVITE_CODE` when prompted.
+You need a Cloudflare account (the free plan is fine). One-time setup:
 
-The one thing to get right anywhere you deploy:
+```bash
+npx wrangler login                       # opens a browser to authorise
+npx wrangler d1 create step-race         # prints a database_id
+```
 
-> **Mount a persistent volume at `/app/data`.** Without one the SQLite file sits
-> in the container's own filesystem, and every restart or redeploy wipes the
-> group's entire step history.
+Paste that `database_id` into `wrangler.jsonc`, then:
 
-On Render that means a **paid instance type** — persistent disks aren't available
-on the free tier, whose filesystem is ephemeral. Roughly $7/month at the time of
-writing. If you'd rather stay free, the alternative is to move storage to a
-hosted Postgres free tier (Neon, Supabase) and port `server/db.js` off SQLite;
-the queries are plain SQL, so it is a contained change, but it is a change.
+```bash
+npx wrangler secret put INVITE_CODE      # choose your group's code
+npm run db:init:remote                   # create the tables in production
+npm run deploy
+```
 
-The `Dockerfile` also works as-is on Railway, Fly.io, or any Docker host. Vercel
-and other pure-serverless hosts will not work — no persistent disk.
+That prints your URL — `https://step-race.<your-subdomain>.workers.dev`. Send it
+to your nine people.
 
-GitHub Pages will not work either, and can't be made to: it serves static files
-only, so there is no Node process to run the API and no database to log into.
+`npm run tail` streams live logs.
 
-### A note on the invite code
+### What this costs
 
-`STEP2026` is a convenience default for local development and is visible in this
-public repo. Set a different `INVITE_CODE` on your deployment — it is the only
-thing standing between a stranger and one of your ten places.
+Nothing, for a group of this size. The Workers free plan allows 100,000 requests
+a day and D1's free tier allows 5 GB of storage with 5 million row reads a day;
+ten people logging steps will not come close to either.
+
+There is one real consequence of the free plan, though — see below.
+
+### The free plan's 10ms CPU limit
+
+Workers on the free plan allow **10ms of CPU per request**. That matters in
+exactly one place: password hashing, which is deliberately CPU-expensive.
+
+Workers has no bcrypt or scrypt, so this app uses PBKDF2-SHA256 via WebCrypto,
+measured at roughly **0.125ms per 1,000 iterations**. The current OWASP
+recommendation of 600,000 iterations would take ~75ms and the login request
+would be killed outright.
+
+So `PBKDF2_ITERATIONS` defaults to **25,000** (~3ms), which fits the free plan
+with headroom. That is weaker than a public-facing app should use. It is a
+considered trade for this context — signup is invite-only, the group is capped at
+ten, and nothing here is worth much to an attacker — but it is a trade, and you
+should know you're making it.
+
+If you move to the Workers paid plan (5 minutes of CPU per request), set
+`PBKDF2_ITERATIONS` to `600000` in `wrangler.jsonc` and redeploy. The iteration
+count is stored inside each password hash, so raising it is backward compatible:
+existing accounts keep verifying at their original cost, and new or changed
+passwords use the stronger setting.
+
+### Why not GitHub Pages
+
+It can't run this, and can't be made to. Pages serves static files only — no
+process to run the API, no database to log into. Cloudflare Workers is the thing
+that makes a static-hosting-shaped deployment actually able to run a server.
+
+## Configuration
+
+Plain settings live in `vars` in `wrangler.jsonc`:
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `APP_TZ` | `Asia/Singapore` | Decides "what day is it" and when the week rolls over |
+| `MAX_MEMBERS` | `10` | Hard cap on group size |
+| `PBKDF2_ITERATIONS` | `25000` | Password hashing cost — see above |
+
+`INVITE_CODE` is a **secret**, not a var, because this repo is public:
+
+```bash
+npx wrangler secret put INVITE_CODE          # production
+echo 'INVITE_CODE=whatever' > .dev.vars      # local dev (gitignored)
+```
+
+If it is never set the Worker falls back to `STEP2026`, which is written in this
+public README and therefore protects nothing. Set it.
+
+`APP_TZ` matters more than it looks. A Worker runs in whichever datacentre is
+nearest the visitor, so there is no meaningful "server timezone" to inherit —
+without an explicit value the week would roll over at the wrong moment for
+everyone.
 
 ## How it is built
 
-- **Backend** — Node + Express 5, no ORM
-- **Database** — SQLite via built-in `node:sqlite`
-- **Auth** — scrypt password hashing (`node:crypto`), opaque session tokens in an
-  httpOnly cookie
-- **Frontend** — plain HTML, CSS and ES modules. No build step, no framework,
-  no bundler. Edit a file, reload the page.
-
-Three runtime dependencies would be normal here. There is one: Express.
+- **Runtime** — Cloudflare Workers (a V8 isolate, not Node)
+- **Database** — Cloudflare D1, which is SQLite
+- **Auth** — PBKDF2-SHA256 via WebCrypto, opaque session tokens in an httpOnly
+  cookie
+- **Frontend** — plain HTML, CSS and ES modules, served straight from
+  Cloudflare's edge. No build step, no framework, no bundler.
+- **Runtime dependencies — none.** `wrangler` is the only package, and it is a
+  build-time tool. Express doesn't run on Workers, and twelve routes didn't
+  justify a replacement framework, so the router is about forty lines.
 
 ### The data model
 
@@ -88,22 +132,22 @@ One record type does the real work:
 step_entries (user_id, date, steps)   UNIQUE(user_id, date)
 ```
 
-One row per person per day. Every number the app displays — weekly totals,
-ranks, positions on the track, pace, group progress — is derived by summing that
-table over a date range. Nothing is stored pre-summed, so nothing can go stale.
-Ten people over seven days is at most seventy rows to add up.
+One row per person per day. Every number the app displays — weekly totals, ranks,
+positions on the track, pace, group progress — is derived by summing that table
+over a date range. Nothing is stored pre-summed, so nothing can go stale. Ten
+people over seven days is at most seventy rows to add up.
 
 The `UNIQUE(user_id, date)` constraint is what makes logging idempotent: entering
 Tuesday twice edits Tuesday rather than adding a second Tuesday.
 
-Supporting tables are plumbing, not features: `users`, `sessions`, `cheers`
-(the 👏 button), and `meta` (the group's name and goal).
+Supporting tables are plumbing, not features: `users`, `sessions`, `cheers` (the
+👏 button), and `meta` (the group's name and goal).
 
 ### The permission rule
 
 > Any member can read everyone's steps. You can only write your own.
 
-The read half is one middleware (`requireAuth`) on every `/api` route. The write
+The read half is one check at the top of every authenticated route. The write
 half isn't a check at all — `PUT /api/entries` takes the user id from the session
 and ignores any id in the request body, so "write to someone else's day" is not
 expressible, crafted request or not.
@@ -186,17 +230,32 @@ Everything except `/api/config`, signup and login requires a session.
 ## Layout
 
 ```
-server/
-  index.js     Express app, routes, validation
-  db.js        Schema and every query
-  auth.js      scrypt hashing, sessions, route guards
-  week.js      Timezone-aware week maths
+worker/
+  index.js     Router, routes, validation
+  db.js        Every D1 query
+  auth.js      PBKDF2 hashing, sessions, session lookup
+  week.js      Timezone-aware week maths (pure)
   weekview.js  Builds the payload GET /api/week returns
 public/
   login.html   Sign in / join
   index.html   The app
   js/          api.js, track.js, app.js
   css/
+schema.sql     D1 tables
+wrangler.jsonc Worker config, bindings, vars
 scripts/
-  seed.js      Ten demo members, two weeks of steps
+  seed.mjs     Ten demo members via the HTTP API
 ```
+
+Static files are served by Cloudflare's edge via the `assets` binding, which
+matches them before the Worker runs — so the Worker only executes for `/api/*`.
+Asset URLs are extensionless: `/login`, not `/login.html`.
+
+## History
+
+This started as a Node + Express server using the built-in `node:sqlite` and a
+local database file, deployable to any Docker host. That version is in the git
+history if you want it. It was replaced with Workers + D1 because Cloudflare's
+free tier gives persistent shared storage, which the free tiers of container
+hosts generally do not — Render, for instance, only offers persistent disks on
+paid instances.

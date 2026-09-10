@@ -1,19 +1,13 @@
 // Builds the one payload the whole UI runs on.
 //
-// The client asks for a week and gets back everything it needs to draw the
-// race track, the leaderboard, the backfill grid and the group goal. All of it
-// is computed here from raw step_entries rows -- nothing is stored pre-summed.
+// The client asks for a week and gets back everything it needs to draw the race
+// track, the leaderboard, the backfill grid and the group goal. All of it is
+// computed here from raw step_entries rows -- nothing is stored pre-summed.
 //
 // One request, one render. At ten people and seven days that is at most 70 rows
-// to add up, so there is no reason to be cleverer than this.
+// to add up, well inside a Worker's CPU budget.
 
-import {
-  cheersForWeek,
-  entriesInRange,
-  getMeta,
-  listUsers,
-  weeksWithData,
-} from './db.js';
+import { cheersForWeek, entriesInRange, getMeta, listUsers, weeksWithData } from './db.js';
 import {
   DAY_NAMES,
   currentWeekStart,
@@ -31,17 +25,22 @@ function milestonesUpTo(maxSteps) {
   return out;
 }
 
-export function buildWeekView(weekStartISO, viewerId) {
+export async function buildWeekView(db, weekStartISO, viewerId, tz) {
   const dates = weekDates(weekStartISO);
   const weekEnd = dates[6];
-  const today = todayISO();
-  const elapsed = daysElapsed(weekStartISO);
-  const isCurrentWeek = weekStartISO === currentWeekStart();
+  const today = todayISO(tz);
+  const elapsed = daysElapsed(weekStartISO, tz);
+  const isCurrentWeek = weekStartISO === currentWeekStart(tz);
 
-  const meta = getMeta();
-  const users = listUsers();
-  const entries = entriesInRange(weekStartISO, weekEnd);
-  const cheers = cheersForWeek(weekStartISO);
+  // Five independent reads -- fire them together rather than in sequence, so
+  // the request costs one round of D1 latency instead of five.
+  const [meta, users, entries, cheers, archiveWeeks] = await Promise.all([
+    getMeta(db),
+    listUsers(db),
+    entriesInRange(db, weekStartISO, weekEnd),
+    cheersForWeek(db, weekStartISO),
+    weeksWithData(db),
+  ]);
 
   // Group entries by user so each member can be assembled in one pass.
   const byUser = new Map(users.map((u) => [u.id, []]));
@@ -67,8 +66,6 @@ export function buildWeekView(weekStartISO, viewerId) {
       if (!lastLoggedDate || entry.date > lastLoggedDate) lastLoggedDate = entry.date;
     }
 
-    const loggedDays = Object.keys(days).length;
-
     // Pace: by day N of 7 you are "on pace" once you have N/7 of your goal.
     // Past weeks are judged against the whole goal, since they are finished.
     const paceTarget = Math.round((user.weekly_goal * elapsed) / 7);
@@ -86,7 +83,7 @@ export function buildWeekView(weekStartISO, viewerId) {
       isMe: user.id === viewerId,
       days,
       total,
-      loggedDays,
+      loggedDays: Object.keys(days).length,
       lastLoggedDate,
       lastLoggedDay: lastLoggedDate ? DAY_NAMES[dates.indexOf(lastLoggedDate)] : null,
       hasLoggedToday,
@@ -153,6 +150,6 @@ export function buildWeekView(weekStartISO, viewerId) {
     rivals,
     maxSteps,
     milestones: milestonesUpTo(maxSteps),
-    archiveWeeks: weeksWithData(),
+    archiveWeeks,
   };
 }

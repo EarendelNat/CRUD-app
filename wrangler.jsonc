@@ -1,0 +1,47 @@
+{
+  // Cloudflare Workers config. See README for the deploy steps.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "step-race",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-09-01",
+
+  // The frontend. Cloudflare serves these files directly from its edge and only
+  // invokes the Worker for paths with no matching file (i.e. /api/*).
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // D1 is Cloudflare's SQLite. `database_id` is filled in by:
+  //   npx wrangler d1 create step-race
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "step-race",
+      "database_id": "PLACEHOLDER_RUN_WRANGLER_D1_CREATE"
+    }
+  ],
+
+  "vars": {
+    // Decides "what day is it" and when the week rolls over. A Worker runs in
+    // whichever datacentre is nearest the visitor, so this must be explicit.
+    "APP_TZ": "Asia/Singapore",
+
+    "MAX_MEMBERS": "10",
+
+    // Password hashing cost. 25000 is chosen to fit the Workers FREE plan's
+    // 10ms CPU limit (~3ms). On the paid plan (5 min CPU) raise this to 600000.
+    // The value is stored inside each hash, so changing it stays backward
+    // compatible with existing accounts.
+    "PBKDF2_ITERATIONS": "25000"
+  },
+
+  // INVITE_CODE is deliberately NOT here -- it is the only thing protecting your
+  // ten places, and this file is committed to a public repo. Set it as a secret:
+  //   npx wrangler secret put INVITE_CODE
+  // Without it the Worker falls back to STEP2026, which is public knowledge.
+
+  "observability": {
+    "enabled": true
+  }
+}

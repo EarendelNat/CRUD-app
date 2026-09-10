@@ -1,22 +1,22 @@
-// Week + date helpers.
+// Week + date helpers. Pure functions -- no platform APIs beyond Intl, which
+// Workers supports with full timezone data.
 //
 // Everything in this app is keyed on a plain 'YYYY-MM-DD' date string, never a
 // timestamp. That keeps "Tuesday's steps" unambiguous. The only tricky part is
 // deciding which day "now" falls on, and when the week rolls over -- both of
-// which must happen in the group's own timezone, not the server's. A server in
-// UTC would otherwise roll the week over at 8am Monday for a group in Singapore.
-
-export const APP_TZ = process.env.APP_TZ || 'Asia/Singapore';
+// which must happen in the group's own timezone, not the server's. A Worker
+// runs in whichever datacentre is nearest the visitor, so there is no sensible
+// "server timezone" to fall back on: the tz has to be passed in explicitly.
 
 const DAY_MS = 86400000;
 
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /** 'YYYY-MM-DD' for the given instant, as seen in the group's timezone. */
-export function todayISO(now = new Date()) {
+export function todayISO(tz, now = new Date()) {
   // en-CA formats as YYYY-MM-DD, which is exactly the shape we store.
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: APP_TZ,
+    timeZone: tz,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -39,8 +39,8 @@ export function weekStartOf(iso) {
 }
 
 /** The Monday of the current week, in the group's timezone. */
-export function currentWeekStart(now = new Date()) {
-  return weekStartOf(todayISO(now));
+export function currentWeekStart(tz, now = new Date()) {
+  return weekStartOf(todayISO(tz, now));
 }
 
 /** Shift a week start by n weeks (negative = earlier). */
@@ -70,14 +70,14 @@ export function isValidISODate(value) {
  * Returns days 1..7 -- on Monday you are expected to have 1/7 of your goal,
  * by Sunday the full thing. Past weeks always count as complete.
  */
-export function daysElapsed(weekStartISO, now = new Date()) {
-  const today = todayISO(now);
-  if (today < weekStartISO) return 0;                      // week hasn't started
-  if (today > weekDates(weekStartISO)[6]) return 7;        // week is over
+export function daysElapsed(weekStartISO, tz, now = new Date()) {
+  const today = todayISO(tz, now);
+  if (today < weekStartISO) return 0; // week hasn't started
+  if (today > weekDates(weekStartISO)[6]) return 7; // week is over
   return weekdayIndex(today) + 1;
 }
 
-/** Nicely formatted week label, e.g. "6 - 12 Oct 2026". */
+/** Nicely formatted week label, e.g. "7 - 13 Sept 2026". */
 export function weekLabel(weekStartISO) {
   const dates = weekDates(weekStartISO);
   const fmt = (iso, opts) =>

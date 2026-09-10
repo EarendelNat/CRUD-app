@@ -1,7 +1,9 @@
 node_modules/
-data/*.db
-data/*.db-journal
-data/*.db-wal
-data/*.db-shm
+.wrangler/
+.dev.vars
 .env
+dist/
+data/
+*.sqlite
+*.db
 .DS_Store

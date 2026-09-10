@@ -399,7 +399,7 @@ el('jumpToMe').addEventListener('click', () => track.scrollToMe());
 
 el('logoutBtn').addEventListener('click', async () => {
   await api.logout();
-  location.href = '/login.html';
+  location.href = '/login';
 });
 
 el('weekPrev').addEventListener('click', () => load(shiftWeek(-1)));

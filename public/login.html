@@ -135,7 +135,7 @@
             email: el('loginEmail').value,
             password: el('loginPassword').value,
           });
-          location.href = '/index.html';
+          location.href = '/';
         } catch (err) {
           showError(err.message);
           el('loginSubmit').disabled = false;
@@ -156,7 +156,7 @@
             inviteCode: el('joinInvite').value.trim(),
             avatar: chosenAvatar,
           });
-          location.href = '/index.html';
+          location.href = '/';
         } catch (err) {
           showError(err.message);
           el('joinSubmit').disabled = false;

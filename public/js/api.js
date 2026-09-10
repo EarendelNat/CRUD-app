@@ -12,7 +12,7 @@ async function request(method, path, body) {
 
   if (res.status === 401) {
     // The session expired or was never there. Bounce to the login page.
-    if (!location.pathname.startsWith('/login')) location.href = '/login.html';
+    if (!location.pathname.startsWith('/login')) location.href = '/login';
     throw new Error('Please sign in again.');
   }
 
