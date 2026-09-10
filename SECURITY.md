@@ -17,8 +17,8 @@ Six things. Skipping the first one publishes your group.
 # 1. Set the invite code. Without it, signup is closed (503) by design.
 npx wrangler secret put INVITE_CODE
 
-# 2. Create the tables — including auth_throttle, which rate limiting needs.
-#    Idempotent, so run it again on an existing deployment.
+# 2. Create the tables — including auth_throttle (rate limiting) and
+#    password_resets. Idempotent, so run it again on an existing deployment.
 npm run db:init:remote
 
 # 3. Deploy.
@@ -67,6 +67,10 @@ using it is a decision rather than a typo.
 | Clickjacking | `frame-ancestors 'none'` + `X-Frame-Options: DENY` | both header sets |
 | Member enumeration by response | One message for both wrong-email and wrong-password | `index.js` `handleLogin` |
 | Member enumeration by stopwatch | Decoy hash uses the *configured* cost, not a hardcoded one | `index.js` `handleLogin` |
+| A stolen session being made permanent | Changing a password needs the current one, and drops every session | `index.js` `handleChangePassword` |
+| A leaked database yielding live reset links | Only the SHA-256 of a reset token is stored | `auth.js` `hashToken` |
+| A reset link replayed | Single use, enforced by the `UPDATE`'s own `WHERE`, not a read-then-write | `db.js` `consumePasswordReset` |
+| A reset link in a log or Referer header | The token rides in the URL fragment, which browsers never send | `public/js/reset.js` |
 | Eleventh member slipping in during a race | The size limit is inside the `INSERT`, not a separate check | `db.js` `createUser` |
 
 ### Rate limiting, specifically
@@ -118,9 +122,17 @@ for a real person. It is gated behind knowing the invite code.
 widths with `style="width: N%"` attributes. Script injection — the part that
 matters — is blocked: `script-src 'self'` with no inline escape hatch.
 
-**There is no password change or reset flow.** A member who wants to rotate
-their password cannot; the recovery path is manual. `deleteSessionsForUser` in
-`db.js` exists to sign one person out of every device, but nothing calls it yet.
+**Password recovery goes through you, not through email.** A signed-in member
+can rotate their own password from the profile dialog. A locked-out one cannot
+do anything without you: there is no mail provider here, so you mint them a
+link with `npm run reset-password` and send it over a channel you trust. See
+**Resetting a password** below.
+
+The residual risk is that whoever can run `wrangler` against the production
+database can mint a link for anybody and take their account. That is already
+true of anyone with that access — they can rewrite the `users` table directly —
+so the reset script grants no new power. It does make it easy, which is worth
+knowing: guard the Cloudflare account like the admin credential it is.
 
 **Sessions last 30 days with no idle timeout.** Reasonable for a step tracker
 people open once a day, and the cookie is `HttpOnly` + `SameSite=Strict`. Not
@@ -133,6 +145,33 @@ tracking, not worth an emergency.
 
 ---
 
+## Resetting a password
+
+```bash
+npm run reset-password -- --email ben@example.com \
+    --remote --base https://<your-worker>.workers.dev
+```
+
+That prints a one-time link. Send it over a channel you trust — Signal,
+WhatsApp, in person. What it does:
+
+- **Expires in an hour** (`--minutes` to change it, 5 to 1440).
+- **Works once.** Single use is enforced by the `UPDATE`'s own `WHERE` clause,
+  so two requests carrying the same token race and exactly one wins.
+- **Kills every other outstanding link** for that person the moment it is
+  minted, and again when it is used. Only one is ever live.
+- **Signs them out everywhere** when used, then signs them in on the device
+  that used it.
+- **Clears their login lockout**, since they almost certainly tripped it on the
+  way to asking you.
+
+Only the SHA-256 of the token is stored. Your terminal is the only place the
+link exists, so if you lose it, run the command again — that also invalidates
+the one you lost.
+
+A weak new password is rejected *before* the link is spent, so someone who
+picks badly gets another try rather than having to come back to you.
+
 ## If an account is compromised
 
 There is no admin UI, so this is done with `wrangler`:
@@ -144,6 +183,10 @@ npx wrangler d1 execute step-race --remote \
 
 # Sign everyone out.
 npx wrangler d1 execute step-race --remote --command "DELETE FROM sessions;"
+
+# Force one person onto a new password (also drops all their sessions).
+npm run reset-password -- --email them@example.com \
+    --remote --base https://<your-worker>.workers.dev
 
 # Change the invite code, then tell the group the new one.
 npx wrangler secret put INVITE_CODE

@@ -33,10 +33,24 @@ export function clientIp(request) {
   return request.headers.get('cf-connecting-ip') || 'local';
 }
 
+export const ipKey = (request) => `ip:${clientIp(request)}`;
+export const subjectKey = (subject) => `subject:${String(subject).toLowerCase().trim()}`;
+
 /** The pair of keys one attempt is counted against. */
 export function throttleKeys(request, subject) {
-  return [`ip:${clientIp(request)}`, `subject:${String(subject).toLowerCase().trim()}`];
+  return [ipKey(request), subjectKey(subject)];
 }
+
+// A note on choosing keys. A shared subject -- 'signup', say -- caps attempts
+// against this instance from every source at once, which is exactly right for
+// guessing at the one invite code: per-IP limits alone would fall to a
+// botnet. The cost is that a determined attacker can hold signup closed for
+// half an hour. That is an acceptable trade for a group that signs up once.
+//
+// It is NOT acceptable for password resets, where the same shared key would
+// let one attacker block everybody's recovery. Those throttle on ipKey alone;
+// there is no shared secret to protect, because each token is 32 bytes of
+// CSPRNG output and cannot be guessed at any rate.
 
 /**
  * Is either key currently locked out? Returns the seconds still to wait, or 0.

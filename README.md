@@ -34,6 +34,37 @@ a live group fills its ten places with fake members.
 For your real group: skip the seed, and have everyone visit the deployed URL and
 pick **Join the group**. They'll need the invite code.
 
+## Forgotten passwords
+
+Someone signed in can change their own password from the profile dialog — the
+🙂 button, then **Change your password**. It asks for the current one, and it
+signs them out on every other device.
+
+Someone locked *out* has to ask you, because there is no mail provider here and
+adding one would mean a third-party account, an API key and a verified sender
+domain for a group of ten. Mint them a link instead:
+
+```bash
+npm run reset-password -- --email ben@example.com
+
+# against production
+npm run reset-password -- --email ben@example.com \
+    --remote --base https://step-race.<your-subdomain>.workers.dev
+```
+
+It prints a one-time link. Send it over whatever you already use to talk to
+each other. It expires in an hour (`--minutes` to change that), works once, and
+using it signs that person out everywhere and kills any other link they had
+outstanding. Only the link's SHA-256 is stored, so if you lose it, run the
+command again — which also invalidates the one you lost.
+
+The token travels in the URL *fragment* (`/reset#…`), which browsers never send
+to a server, so it stays out of request logs and out of Cloudflare's traces.
+The page reads it and posts it in a body.
+
+This does not scale, and it is not meant to. For ten people it is a text
+message.
+
 ## Deploying
 
 You need a Cloudflare account (the free plan is fine). One-time setup:
@@ -61,8 +92,9 @@ Before you send that URL to anyone, walk the checklist in
 a private group and a public one.
 
 > **Upgrading an instance deployed before the hardening changes?** Re-run
-> `npm run db:init:remote`. It is idempotent, and it adds the `auth_throttle`
-> table that rate limiting needs. Without it every login returns a 500.
+> `npm run db:init:remote`. It is idempotent, and it adds the two new tables:
+> `auth_throttle`, which rate limiting needs, and `password_resets`. Without
+> the first, every login returns a 500.
 
 ### What this costs
 
@@ -237,13 +269,17 @@ Wednesday stops opening it. Most of these features target one of those.
 
 ## API
 
-Everything except `/api/config`, signup and login requires a session.
+Everything except `/api/config`, signup, login and the two reset routes
+requires a session.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/config` | Group name, size, avatar list (public; never the invite code) |
 | `POST` | `/api/auth/signup` | Join, with invite code |
 | `POST` | `/api/auth/login` / `logout` | Session in, session out |
+| `POST` | `/api/auth/reset/check` | Is this reset link still good, and whose is it? |
+| `POST` | `/api/auth/reset` | Spend a reset link, set a password, sign in |
+| `POST` | `/api/auth/change-password` | Rotate your own password (needs the current one) |
 | `GET` / `PATCH` | `/api/me` | Your profile, avatar and weekly goal |
 | `GET` | `/api/week?week=YYYY-MM-DD` | **The one read.** Everything the UI renders, for that week |
 | `PUT` | `/api/entries` | Log or correct one of *your* days |
@@ -259,21 +295,23 @@ Everything except `/api/config`, signup and login requires a session.
 worker/
   index.js     Router, routes, validation, CSRF + security headers
   db.js        Every D1 query
-  auth.js      PBKDF2 hashing, sessions, session lookup
+  auth.js      PBKDF2 hashing, sessions, reset-token hashing
   throttle.js  Login / invite-code brute-force rate limiting
   week.js      Timezone-aware week maths (pure)
   weekview.js  Builds the payload GET /api/week returns
 public/
   login.html   Sign in / join
+  reset.html   Set a new password from a one-time link
   index.html   The app
-  js/          api.js, track.js, app.js, login.js
+  js/          api.js, track.js, app.js, login.js, reset.js
   css/
   _headers     Security headers for edge-served static files
 schema.sql     D1 tables
 wrangler.jsonc Worker config, bindings, vars
 SECURITY.md    Threat model and the pre-deploy checklist
 scripts/
-  seed.mjs     Ten demo members via the HTTP API
+  seed.mjs             Ten demo members via the HTTP API
+  reset-password.mjs   Mint a one-time reset link for one member
 ```
 
 Static files are served by Cloudflare's edge via the `assets` binding, which

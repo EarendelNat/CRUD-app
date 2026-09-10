@@ -11,13 +11,21 @@
 
 import {
   addCheer,
+  consumePasswordReset,
   countUsers,
   createUser,
   deleteEntry,
+  deletePasswordResetsForUser,
+  deleteSessionsForUser,
   findUserByEmail,
+  findUserById,
+  findUserCredentials,
   getMeta,
+  peekPasswordReset,
+  purgeExpiredPasswordResets,
   removeCheer,
   setMeta,
+  setPasswordHash,
   updateUserProfile,
   upsertEntry,
 } from './db.js';
@@ -27,6 +35,7 @@ import {
   endSession,
   getSessionUser,
   hashPassword,
+  hashToken,
   iterationsFrom,
   parseCookies,
   secretsMatch,
@@ -35,9 +44,11 @@ import {
 } from './auth.js';
 import {
   clearFailures,
+  ipKey,
   purgeStaleThrottles,
   recordFailure,
   retryAfter,
+  subjectKey,
   throttleKeys,
 } from './throttle.js';
 import { buildWeekView } from './weekview.js';
@@ -100,6 +111,12 @@ const json = (data, status = 200, headers = {}) => {
 };
 
 const fail = (status, message, headers) => json({ error: message }, status, headers);
+
+/** The 429 every throttled route returns, with the header a client can act on. */
+const tooMany = (wait, what = 'attempts') =>
+  fail(429, `Too many ${what}. Try again in ${wait} second${wait === 1 ? '' : 's'}.`, {
+    'retry-after': String(wait),
+  });
 
 const config = (env) => ({
   tz: env.APP_TZ || DEFAULT_TZ,
@@ -171,9 +188,13 @@ function passwordProblem(password, email) {
     return 'That password is one of the most commonly guessed ones. Please pick another.';
   }
   // Reusing your own address as your password defeats the point of having one.
+  // The message names the offending string: someone whose address starts with
+  // a short word can trip this without having typed their email at all
+  // ("bens-first-password" contains "ben"), and "does not contain your email
+  // address" would leave them staring at a password that plainly doesn't.
   const localPart = String(email || '').split('@')[0].toLowerCase();
   if (localPart.length >= 3 && password.toLowerCase().includes(localPart)) {
-    return 'Please pick a password that does not contain your email address.';
+    return `Your password cannot contain "${localPart}" — that is the start of your email address.`;
   }
   return null;
 }
@@ -236,11 +257,7 @@ async function handleSignup(request, env, db, url) {
   // caps total signup attempts against this instance regardless of source.
   const keys = throttleKeys(request, 'signup');
   const wait = await retryAfter(db, keys);
-  if (wait > 0) {
-    return fail(429, `Too many attempts. Try again in ${wait} second${wait === 1 ? '' : 's'}.`, {
-      'retry-after': String(wait),
-    });
-  }
+  if (wait > 0) return tooMany(wait);
 
   if (typeof email !== 'string' || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
     return fail(400, 'Please enter a valid email address.');
@@ -300,13 +317,7 @@ async function handleLogin(request, env, db, url) {
   // spend a PBKDF2 derivation per guess.
   const keys = throttleKeys(request, email);
   const wait = await retryAfter(db, keys);
-  if (wait > 0) {
-    return fail(
-      429,
-      `Too many sign-in attempts. Try again in ${wait} second${wait === 1 ? '' : 's'}.`,
-      { 'retry-after': String(wait) }
-    );
-  }
+  if (wait > 0) return tooMany(wait, 'sign-in attempts');
 
   const record = await findUserByEmail(db, email);
 
@@ -350,6 +361,131 @@ async function handleLogout(request, _env, db, url) {
     secure: isSecure(url),
   });
   return json({ ok: true }, 200, { 'set-cookie': cookies });
+}
+
+// ------------------------------------------------------------ password reset
+//
+// Nothing here sends anything. This project has no mail provider and adding
+// one would mean a third-party account, an API key and a verified sender
+// domain for a group of ten -- so the link is minted out of band, by whoever
+// runs the group, with `npm run reset-password`. These routes are what the
+// link then talks to.
+//
+// The token travels in the URL *fragment* (`/reset#<token>`), which a browser
+// never puts on the wire. That keeps it out of request logs, out of
+// Cloudflare's observability traces, and out of any Referer header. The page
+// reads location.hash and posts the token in a body instead.
+
+const BAD_RESET_TOKEN = 'That reset link is not valid any more. Ask for a new one.';
+
+/** Is this link still good, and whose is it? Asked before showing the form. */
+async function handleResetCheck(request, _env, db) {
+  const { token } = await readJson(request);
+
+  // IP only, deliberately -- see the note on key choice in throttle.js.
+  const keys = [ipKey(request)];
+  const wait = await retryAfter(db, keys);
+  if (wait > 0) return tooMany(wait);
+
+  if (typeof token !== 'string' || !token) return fail(400, BAD_RESET_TOKEN);
+
+  const target = await peekPasswordReset(db, await hashToken(token));
+  if (!target) {
+    await recordFailure(db, keys);
+    return fail(400, BAD_RESET_TOKEN);
+  }
+
+  // Only the name. Enough for the page to confirm whose link this is before
+  // someone types a password into it; not enough to be worth harvesting.
+  return json({ name: target.name });
+}
+
+async function handleResetPassword(request, env, db, url) {
+  const { token, password } = await readJson(request);
+
+  const keys = [ipKey(request)];
+  const wait = await retryAfter(db, keys);
+  if (wait > 0) return tooMany(wait);
+
+  if (typeof token !== 'string' || !token) return fail(400, BAD_RESET_TOKEN);
+  const tokenHash = await hashToken(token);
+
+  // Check the password BEFORE spending the token. Rejecting a weak password
+  // after the link is burnt would send the person back to ask for another one
+  // for no reason.
+  const target = await peekPasswordReset(db, tokenHash);
+  if (!target) {
+    await recordFailure(db, keys);
+    return fail(400, BAD_RESET_TOKEN);
+  }
+  const badPassword = passwordProblem(password, target.email);
+  if (badPassword) return fail(400, badPassword);
+
+  // Now spend it. The UPDATE's own WHERE clause is what makes the link
+  // single-use: if the same token arrives twice, exactly one of them matches
+  // `used_at IS NULL` and the other is refused.
+  const spent = await consumePasswordReset(db, tokenHash);
+  if (!spent) return fail(400, BAD_RESET_TOKEN);
+
+  await setPasswordHash(db, spent.user_id, await hashPassword(password, env));
+
+  // A reset answers "I have lost control of this account", so everything that
+  // might still be holding it goes: every session on every device, and every
+  // other link that was outstanding.
+  await Promise.all([
+    deleteSessionsForUser(db, spent.user_id),
+    deletePasswordResetsForUser(db, spent.user_id),
+    // They almost certainly locked themselves out on the way here.
+    clearFailures(db, [subjectKey(target.email)]),
+  ]);
+
+  const cookie = await startSession(db, spent.user_id, { secure: isSecure(url) });
+  return json({ user: await findUserById(db, spent.user_id) }, 200, { 'set-cookie': cookie });
+}
+
+/** Rotate your own password while signed in. No link, no operator involved. */
+async function handleChangePassword(request, env, db, url, user) {
+  const { currentPassword, newPassword } = await readJson(request);
+
+  const keys = [ipKey(request), subjectKey(user.email)];
+  const wait = await retryAfter(db, keys);
+  if (wait > 0) return tooMany(wait);
+
+  const record = await findUserCredentials(db, user.id);
+  if (!record) return fail(401, 'Please sign in.');
+
+  // Re-authenticate. A session alone is not enough to change the password it
+  // rests on, or a borrowed laptop becomes a permanent takeover.
+  const ok =
+    typeof currentPassword === 'string' &&
+    (await verifyPassword(currentPassword, record.password_hash));
+  if (!ok) {
+    await recordFailure(db, keys);
+    // 403 rather than 401 on purpose: the session is perfectly valid, it is
+    // the re-auth that failed. The client bounces to /login on any 401, which
+    // would throw someone out of the app for mistyping.
+    return fail(403, 'That is not your current password.');
+  }
+
+  const badPassword = passwordProblem(newPassword, record.email);
+  if (badPassword) return fail(400, badPassword);
+  if (newPassword === currentPassword) {
+    return fail(400, 'That is already your password. Pick a different one.');
+  }
+
+  await setPasswordHash(db, user.id, await hashPassword(newPassword, env));
+
+  // Changing a password is also how you evict someone who has your session,
+  // so drop them all -- including this one -- and issue a fresh cookie, so the
+  // person doing it stays signed in and nobody else does.
+  await Promise.all([
+    deleteSessionsForUser(db, user.id),
+    deletePasswordResetsForUser(db, user.id),
+    clearFailures(db, keys),
+  ]);
+
+  const cookie = await startSession(db, user.id, { secure: isSecure(url) });
+  return json({ ok: true }, 200, { 'set-cookie': cookie });
 }
 
 async function handlePatchMe(request, _env, db, _url, user) {
@@ -483,6 +619,9 @@ const ROUTES = [
   ['POST', /^\/api\/auth\/signup$/, handleSignup, false],
   ['POST', /^\/api\/auth\/login$/, handleLogin, false],
   ['POST', /^\/api\/auth\/logout$/, handleLogout, false],
+  ['POST', /^\/api\/auth\/reset\/check$/, handleResetCheck, false],
+  ['POST', /^\/api\/auth\/reset$/, handleResetPassword, false],
+  ['POST', /^\/api\/auth\/change-password$/, handleChangePassword, true],
   ['GET', /^\/api\/me$/, (_r, _e, _d, _u, user) => json({ user }), true],
   ['PATCH', /^\/api\/me$/, handlePatchMe, true],
   ['GET', /^\/api\/week$/, handleWeek, true],
@@ -575,6 +714,7 @@ export default {
             Promise.all([
               import('./db.js').then((m) => m.purgeExpiredSessions(db)),
               purgeStaleThrottles(db),
+              purgeExpiredPasswordResets(db),
             ]).catch(() => {})
           );
         }

@@ -60,6 +60,25 @@ CREATE TABLE IF NOT EXISTS auth_throttle (
 
 CREATE INDEX IF NOT EXISTS idx_throttle_window ON auth_throttle(window_start);
 
+-- Password resets. There is no mail provider here, so a locked-out member
+-- cannot start this themselves: whoever runs the group mints a single-use link
+-- with `npm run reset-password` and hands it over in person or over chat.
+--
+-- Only the SHA-256 of the token is stored, never the token. A dump of this
+-- table therefore contains no usable links -- which matters more than it does
+-- for sessions, because a reset link travels through a channel we do not
+-- control and may sit in someone's chat history for weeks.
+CREATE TABLE IF NOT EXISTS password_resets (
+  token_hash TEXT PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL,
+  used_at    TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets(user_id);
+CREATE INDEX IF NOT EXISTS idx_resets_expiry ON password_resets(expires_at);
+
 -- The one social action: a clap for someone, at most one per person per week.
 CREATE TABLE IF NOT EXISTS cheers (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,

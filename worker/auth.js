@@ -171,6 +171,25 @@ export async function secretsMatch(a, b) {
   return timingSafeEqual(new Uint8Array(ha), new Uint8Array(hb));
 }
 
+// -------------------------------------------------------------- reset tokens
+
+/**
+ * SHA-256 of a password-reset token, lowercase hex. The database stores this
+ * and never the token itself, so a leaked dump contains no usable links.
+ *
+ * A plain digest is right here where a password needs PBKDF2: the token is 32
+ * bytes of CSPRNG output, so there is no small search space to slow an
+ * attacker down within. What matters instead is that lookup stays a single
+ * indexed read, which a per-row salt would rule out.
+ *
+ * scripts/reset-password.mjs computes the same digest with node:crypto. The
+ * two must agree exactly -- UTF-8 bytes, SHA-256, lowercase hex.
+ */
+export async function hashToken(token) {
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(String(token)));
+  return toHex(new Uint8Array(digest));
+}
+
 // ------------------------------------------------------------ request helpers
 
 /** Parse the Cookie header into a plain object. */
