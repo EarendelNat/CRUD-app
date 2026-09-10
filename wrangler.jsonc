@@ -12,13 +12,14 @@
     "binding": "ASSETS"
   },
 
-  // D1 is Cloudflare's SQLite. `database_id` is filled in by:
-  //   npx wrangler d1 create step-race
+  // D1 is Cloudflare's SQLite. This id came from `npx wrangler d1 create
+  // step-race` -- it is an identifier, not a secret, and is safe to commit.
+  // If you fork this, create your own database and replace it.
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "step-race",
-      "database_id": "PLACEHOLDER_RUN_WRANGLER_D1_CREATE"
+      "database_id": "bc0f4a27-8058-4d24-aa4e-01911804be44"
     }
   ],
 
