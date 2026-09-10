@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Step Race</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏁</text></svg>"
+    />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__brand">
+        <span class="flag">🏁</span>
+        <div>
+          <h1 id="groupName">Step Race</h1>
+          <p class="topbar__week" id="weekLabel">Loading…</p>
+        </div>
+      </div>
+      <div class="topbar__right">
+        <div class="weeknav">
+          <button class="arrow" id="weekPrev" aria-label="Previous week">‹</button>
+          <button id="weekThis">This week</button>
+          <button class="arrow" id="weekNext" aria-label="Next week">›</button>
+        </div>
+        <button class="avatarbtn" id="profileBtn" aria-label="Your profile and settings">🙂</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="card mystatus" id="myStatus"></section>
+
+      <section class="card track-card">
+        <div class="card__head">
+          <h2>The track</h2>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span class="scale-note" id="scaleNote"></span>
+            <button class="btn btn--ghost btn--sm" id="jumpToMe">Jump to me</button>
+          </div>
+        </div>
+
+        <div class="minimap" id="minimap" title="Click or drag to move along the track">
+          <div class="minimap__viewport" id="minimapViewport"></div>
+        </div>
+
+        <div class="track">
+          <div class="track__gutter" id="trackGutter"></div>
+          <div class="track__scroll" id="trackScroll">
+            <div class="track__inner" id="trackInner"></div>
+          </div>
+        </div>
+        <p class="hint">
+          Scroll the track sideways to follow the race. Greyed-out runners haven't logged today
+          yet — they're standing at their last known total, not at zero.
+        </p>
+      </section>
+
+      <section class="card" id="myWeekCard">
+        <div class="card__head">
+          <h2>My week</h2>
+          <span class="savenote" id="saveNote"></span>
+        </div>
+        <div class="daygrid" id="dayGrid"></div>
+        <p class="hint" id="myWeekHint">
+          Forgot a day? Just type it in. You can only ever edit your own row.
+        </p>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2>Leaderboard</h2>
+          <span class="pill" id="loggedToday"></span>
+        </div>
+        <ol class="board" id="board"></ol>
+        <p class="hint">Tap 👏 to cheer someone on — once each per week.</p>
+      </section>
+
+      <section class="card" id="groupCard"></section>
+    </main>
+
+    <!-- profile / settings -->
+    <dialog id="profileDialog">
+      <div class="dialog__body">
+        <div class="dialog__head">
+          <h2>You and your goal</h2>
+          <button class="closebtn" id="profileClose" aria-label="Close">×</button>
+        </div>
+
+        <p class="formerror" id="profileError" hidden></p>
+
+        <div class="field">
+          <label for="profileName">Your name</label>
+          <input id="profileName" type="text" maxlength="30" />
+        </div>
+
+        <div class="field">
+          <label for="profileGoal">Your weekly step goal</label>
+          <input id="profileGoal" type="number" min="7000" max="700000" step="1000" />
+        </div>
+
+        <div class="field">
+          <label>Your runner</label>
+          <div class="avatarpicker" id="profileAvatars"></div>
+        </div>
+
+        <div class="dialog__actions">
+          <button class="btn btn--ghost" id="logoutBtn">Sign out</button>
+          <button class="btn" id="profileSave">Save</button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- group goal -->
+    <dialog id="groupDialog">
+      <div class="dialog__body">
+        <div class="dialog__head">
+          <h2>The group's goal</h2>
+          <button class="closebtn" id="groupClose" aria-label="Close">×</button>
+        </div>
+
+        <p class="formerror" id="groupError" hidden></p>
+
+        <div class="field">
+          <label for="groupNameInput">Group name</label>
+          <input id="groupNameInput" type="text" maxlength="40" />
+        </div>
+
+        <div class="field">
+          <label for="journeyName">Where are you walking to?</label>
+          <input id="journeyName" type="text" maxlength="40" placeholder="Kuala Lumpur" />
+        </div>
+
+        <div class="field">
+          <label for="journeyGoal">Combined steps to get there</label>
+          <input id="journeyGoal" type="number" min="10000" max="20000000" step="10000" />
+        </div>
+
+        <p class="hint" style="margin-bottom: 4px">
+          Any member can change this — there's no admin in a group of ten.
+        </p>
+
+        <div class="dialog__actions">
+          <button class="btn btn--ghost" id="groupCancel">Cancel</button>
+          <button class="btn" id="groupSave">Save</button>
+        </div>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

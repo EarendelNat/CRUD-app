@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in - Step Race</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏁</text></svg>"
+    />
+  </head>
+  <body>
+    <div class="authpage">
+      <div class="authcard">
+        <div class="authcard__brand">
+          <div class="flag">🏁</div>
+          <h1 id="groupName">Step Race</h1>
+          <p id="groupSub">A weekly step race for ten people</p>
+        </div>
+
+        <div class="tabs" role="tablist">
+          <button id="tabLogin" role="tab" aria-selected="true">Sign in</button>
+          <button id="tabJoin" role="tab" aria-selected="false">Join the group</button>
+        </div>
+
+        <p class="formerror" id="error" hidden></p>
+
+        <!-- sign in -->
+        <form id="loginForm">
+          <div class="field">
+            <label for="loginEmail">Email</label>
+            <input id="loginEmail" type="email" autocomplete="email" required />
+          </div>
+          <div class="field">
+            <label for="loginPassword">Password</label>
+            <input id="loginPassword" type="password" autocomplete="current-password" required />
+          </div>
+          <button class="btn btn--block" type="submit" id="loginSubmit">Sign in</button>
+        </form>
+
+        <!-- join -->
+        <form id="joinForm" hidden>
+          <div class="field">
+            <label for="joinName">Your name</label>
+            <input id="joinName" type="text" maxlength="30" autocomplete="nickname" required />
+          </div>
+          <div class="field">
+            <label for="joinEmail">Email</label>
+            <input id="joinEmail" type="email" autocomplete="email" required />
+          </div>
+          <div class="field">
+            <label for="joinPassword">Password <span style="font-weight: 400">(8+ characters)</span></label>
+            <input id="joinPassword" type="password" autocomplete="new-password" minlength="8" required />
+          </div>
+          <div class="field">
+            <label for="joinInvite">Invite code</label>
+            <input id="joinInvite" type="text" autocomplete="off" required />
+          </div>
+          <div class="field">
+            <label>Pick your runner</label>
+            <div class="avatarpicker" id="avatarPicker"></div>
+          </div>
+          <button class="btn btn--block" type="submit" id="joinSubmit">Join the race</button>
+        </form>
+
+        <p class="demo-note" id="demoNote" hidden></p>
+      </div>
+    </div>
+
+    <script type="module">
+      import { api } from '/js/api.js';
+
+      const el = (id) => document.getElementById(id);
+      const errorBox = el('error');
+
+      let chosenAvatar = null;
+
+      function showError(message) {
+        errorBox.textContent = message;
+        errorBox.hidden = !message;
+      }
+
+      function selectTab(which) {
+        const joining = which === 'join';
+        el('tabLogin').setAttribute('aria-selected', String(!joining));
+        el('tabJoin').setAttribute('aria-selected', String(joining));
+        el('loginForm').hidden = joining;
+        el('joinForm').hidden = !joining;
+        showError('');
+      }
+
+      el('tabLogin').addEventListener('click', () => selectTab('login'));
+      el('tabJoin').addEventListener('click', () => selectTab('join'));
+
+      // Load group details so the page can name the group and say whether
+      // there is still room to join.
+      try {
+        const config = await api.config();
+        el('groupName').textContent = config.groupName;
+        el('groupSub').textContent = `A weekly step race for ${config.maxMembers} people`;
+
+        for (const emoji of config.avatars) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = emoji;
+          button.setAttribute('aria-pressed', 'false');
+          button.addEventListener('click', () => {
+            chosenAvatar = emoji;
+            for (const other of el('avatarPicker').children) {
+              other.setAttribute('aria-pressed', String(other === button));
+            }
+          });
+          el('avatarPicker').append(button);
+        }
+
+        if (config.full) {
+          el('tabJoin').disabled = true;
+          el('tabJoin').title = `The group is full (${config.maxMembers} members)`;
+          el('demoNote').hidden = false;
+          el('demoNote').innerHTML =
+            `All ${config.maxMembers} places are taken. If this is the demo data, sign in as ` +
+            `<code>aisyah@example.com</code> with password <code>password123</code>.`;
+        }
+      } catch {
+        showError('Could not reach the server. Is it running?');
+      }
+
+      el('loginForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        showError('');
+        el('loginSubmit').disabled = true;
+        try {
+          await api.login({
+            email: el('loginEmail').value,
+            password: el('loginPassword').value,
+          });
+          location.href = '/index.html';
+        } catch (err) {
+          showError(err.message);
+          el('loginSubmit').disabled = false;
+        }
+      });
+
+      el('joinForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        showError('');
+        if (!chosenAvatar) return showError('Pick a runner to represent you on the track.');
+
+        el('joinSubmit').disabled = true;
+        try {
+          await api.signup({
+            name: el('joinName').value,
+            email: el('joinEmail').value,
+            password: el('joinPassword').value,
+            inviteCode: el('joinInvite').value.trim(),
+            avatar: chosenAvatar,
+          });
+          location.href = '/index.html';
+        } catch (err) {
+          showError(err.message);
+          el('joinSubmit').disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

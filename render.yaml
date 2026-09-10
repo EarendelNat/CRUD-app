@@ -1,0 +1,51 @@
+# Render blueprint. In the Render dashboard: New -> Blueprint, point it at this
+# repo, and it reads this file.
+#
+# IMPORTANT -- the `disk` below is what keeps your group's step history alive
+# across deploys and restarts. Persistent disks require a PAID instance type on
+# Render; the free tier has an ephemeral filesystem, so on a free plan the
+# SQLite file (and every logged step) is wiped whenever the service restarts.
+#
+# So either:
+#   * keep `plan: starter` and the disk  -> data persists, ~$7/month, or
+#   * move storage to a free hosted Postgres (Neon or Supabase) and drop the
+#     disk -> stays free, but server/db.js has to be ported off SQLite.
+#
+# Do not simply change `plan` to `free` and leave the disk in -- Render will
+# reject the blueprint, and if you also remove the disk you get a service that
+# quietly forgets everything.
+
+services:
+  - type: web
+    name: step-race
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: singapore
+    healthCheckPath: /login.html
+
+    disk:
+      name: step-race-data
+      mountPath: /app/data
+      sizeGB: 1
+
+    envVars:
+      # Where SQLite lives -- must sit inside the mounted disk above.
+      - key: DB_PATH
+        value: /app/data/app.db
+
+      - key: NODE_ENV
+        value: production
+
+      # Decides when the week rolls over. Change if your group is elsewhere.
+      - key: APP_TZ
+        value: Asia/Singapore
+
+      - key: MAX_MEMBERS
+        value: "10"
+
+      # sync: false means Render prompts you for this at deploy time instead of
+      # reading it from this file -- so your real invite code never gets
+      # committed to a public repo.
+      - key: INVITE_CODE
+        sync: false

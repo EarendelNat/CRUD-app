@@ -1,0 +1,17 @@
+{
+  "name": "steptrack-ten",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A weekly step-count race for a group of ten people",
+  "engines": { "node": ">=22.5.0" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "seed": "node --disable-warning=ExperimentalWarning scripts/seed.js",
+    "reset": "node --disable-warning=ExperimentalWarning scripts/seed.js --reset"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

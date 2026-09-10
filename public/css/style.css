@@ -1,0 +1,1246 @@
+/* ---------------------------------------------------------------- tokens */
+
+:root {
+  color-scheme: light;
+
+  --bg: #f2f4f7;
+  --surface: #ffffff;
+  --surface-2: #f7f8fa;
+  --border: #e3e6ec;
+  --border-strong: #d0d5df;
+  --text: #16181d;
+  --muted: #6b7280;
+  --faint: #9aa1ad;
+
+  --brand: #4f46b8;
+  --brand-soft: #ecebfb;
+  /* The hero card carries white text, so its background must stay dark in
+     BOTH themes -- it cannot follow --brand, which lightens for dark mode. */
+  --hero-from: #4f46b8;
+  --hero-to: #322c86;
+  --accent: #f2600c;
+  --good: #15803d;
+  --good-soft: #e6f4ea;
+  --warn: #b45309;
+  --warn-soft: #fdf3e3;
+
+  /* An athletics track: terracotta surface, white lane lines. */
+  --track: #b04a2f;
+  --track-alt: #a54428;
+  --track-line: rgba(255, 255, 255, 0.34);
+  --track-grid: rgba(255, 255, 255, 0.16);
+  --track-text: #ffffff;
+
+  --radius: 14px;
+  --radius-sm: 9px;
+  --lane-h: 54px;
+  --gutter-w: 140px;
+  --shadow: 0 1px 2px rgba(16, 20, 30, 0.06), 0 6px 18px rgba(16, 20, 30, 0.06);
+  --shadow-lift: 0 2px 6px rgba(16, 20, 30, 0.1), 0 14px 34px rgba(16, 20, 30, 0.12);
+
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --bg: #0d0f13;
+    --surface: #161a21;
+    --surface-2: #1c212a;
+    --border: #272d38;
+    --border-strong: #333b49;
+    --text: #e7eaef;
+    --muted: #98a1b0;
+    --faint: #6b7482;
+
+    --brand: #9d97f5;
+    --brand-soft: #221f3d;
+    --hero-from: #3a3496;
+    --hero-to: #211c5c;
+    --accent: #ff8438;
+    --good: #58c98a;
+    --good-soft: #14291d;
+    --warn: #e0a350;
+    --warn-soft: #2a2013;
+
+    --track: #8e3a23;
+    --track-alt: #85351f;
+    --track-line: rgba(255, 255, 255, 0.26);
+    --track-grid: rgba(255, 255, 255, 0.12);
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.35);
+    --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.55), 0 14px 34px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* ------------------------------------------------------------------ base */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input {
+  font: inherit;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* --------------------------------------------------------------- buttons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 15px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn--ghost {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--sm {
+  padding: 6px 11px;
+  font-size: 13px;
+}
+
+:where(button, input, a):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* ----------------------------------------------------------------- cards */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.card__head h2 {
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pill--good {
+  background: var(--good-soft);
+  border-color: transparent;
+  color: var(--good);
+}
+
+.pill--warn {
+  background: var(--warn-soft);
+  border-color: transparent;
+  color: var(--warn);
+}
+
+.hint {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.topbar__brand .flag {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.topbar h1 {
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.topbar__week {
+  margin: 1px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.weeknav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.weeknav button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.weeknav button:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.weeknav button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.weeknav .arrow {
+  font-size: 17px;
+  line-height: 1;
+  padding: 3px 10px;
+}
+
+.avatarbtn {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 21px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-2);
+}
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 18px 16px 64px;
+}
+
+/* ------------------------------------------------------------- my status */
+
+.mystatus {
+  background: linear-gradient(135deg, var(--hero-from) 0%, var(--hero-to) 100%);
+  border-color: transparent;
+  color: #fff;
+}
+
+.mystatus__top {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 15px;
+}
+
+.mystatus__avatar {
+  width: 50px;
+  height: 50px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 27px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.17);
+}
+
+.mystatus__name {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.mystatus__sub {
+  font-size: 13px;
+  opacity: 0.82;
+}
+
+.mystatus__total {
+  margin-left: auto;
+  text-align: right;
+}
+
+.mystatus__total b {
+  display: block;
+  font-size: 25px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.mystatus__total span {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* Pace bar: how far through your own weekly goal you are, with a notch
+   showing where you should be by today. */
+.pacebar {
+  position: relative;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.26);
+  overflow: visible;
+}
+
+.pacebar__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: #fff;
+  transition: width 0.4s ease;
+}
+
+.pacebar__notch {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.25);
+  transition: left 0.4s ease;
+}
+
+.pacebar__legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.88;
+}
+
+.rivals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.rival {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ race track */
+
+.track-card {
+  padding-bottom: 14px;
+}
+
+.scale-note {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+/* Minimap: the whole track squeezed to one strip, so you always know where
+   you are even when the leader is far off-screen. */
+.minimap {
+  position: relative;
+  height: 34px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.minimap__viewport {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--brand) 20%, transparent);
+  border-left: 2px solid var(--brand);
+  border-right: 2px solid var(--brand);
+  pointer-events: none;
+  transition: left 0.05s linear, width 0.05s linear;
+}
+
+.minimap__dot {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid var(--surface);
+  pointer-events: none;
+}
+
+.minimap__dot--me {
+  width: 14px;
+  height: 14px;
+  border-color: var(--text);
+  border-width: 2px;
+  z-index: 2;
+}
+
+.track {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.track__gutter {
+  flex: none;
+  width: var(--gutter-w);
+  background: var(--surface-2);
+  border-right: 2px solid var(--border-strong);
+}
+
+.gutter-row {
+  height: var(--lane-h);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+
+.gutter-row:last-child {
+  border-bottom: 0;
+}
+
+.gutter-row__rank {
+  flex: none;
+  width: 17px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--faint);
+  text-align: right;
+}
+
+.gutter-row__avatar {
+  flex: none;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.gutter-row__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gutter-row--me {
+  background: var(--brand-soft);
+}
+
+.gutter-row--me .gutter-row__name {
+  color: var(--brand);
+  font-weight: 750;
+}
+
+.gutter-row--ghost {
+  opacity: 0.55;
+}
+
+.track__scroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.track__inner {
+  position: relative;
+  background: var(--track);
+}
+
+.lane {
+  position: relative;
+  height: var(--lane-h);
+  border-bottom: 1px solid var(--track-line);
+}
+
+.lane:nth-child(even) {
+  background: var(--track-alt);
+}
+
+.lane:last-child {
+  border-bottom: 0;
+}
+
+/* Vertical guides drawn over the lanes. */
+.guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--track-grid);
+  pointer-events: none;
+}
+
+.guide__label {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.65);
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+
+.guide--pace {
+  width: 0;
+  border-left: 2px dashed var(--accent);
+  z-index: 3;
+}
+
+.guide--pace .guide__label {
+  color: #fff;
+  background: var(--accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  left: 3px;
+}
+
+.guide--goal {
+  width: 0;
+  border-left: 3px solid rgba(255, 255, 255, 0.85);
+  z-index: 3;
+}
+
+.guide--goal .guide__label {
+  color: var(--text);
+  background: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  left: 4px;
+}
+
+/* A runner: avatar sitting on their position, step count trailing behind. */
+.runner {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  z-index: 4;
+  transition: left 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.runner__avatar {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+  border: 2px solid var(--surface);
+}
+
+.runner__chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+  color: var(--track-text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.runner--me .runner__avatar {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.runner--me .runner__chip {
+  background: var(--accent);
+}
+
+/* Ghost: hasn't logged today. Greyed and dashed, but still standing at their
+   real total -- never dropped to zero. */
+.runner--ghost {
+  opacity: 0.5;
+}
+
+.runner--ghost .runner__avatar {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.25);
+  filter: grayscale(0.85);
+  box-shadow: none;
+}
+
+.runner--ghost .runner__chip {
+  background: rgba(0, 0, 0, 0.3);
+  font-weight: 600;
+}
+
+.runner__stale {
+  font-size: 10.5px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+/* --------------------------------------------------------- my week grid */
+
+.daygrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.daycell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.daycell--today {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+
+.daycell--future {
+  opacity: 0.45;
+}
+
+.daycell__day {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.daycell--today .daycell__day {
+  color: var(--brand);
+}
+
+.daycell input {
+  width: 100%;
+  padding: 7px 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.daycell input::-webkit-outer-spin-button,
+.daycell input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.daycell input:disabled {
+  background: transparent;
+  cursor: not-allowed;
+}
+
+.daycell input.is-saved {
+  border-color: var(--good);
+  background: var(--good-soft);
+}
+
+.savenote {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--good);
+  min-height: 1em;
+}
+
+.savenote--error {
+  color: #c0392b;
+}
+
+/* -------------------------------------------------------- leaderboard */
+
+.board {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.board__row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.board__row:last-child {
+  border-bottom: 0;
+}
+
+.board__row--me {
+  background: var(--brand-soft);
+}
+
+.board__rank {
+  flex: none;
+  width: 26px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 750;
+  color: var(--muted);
+}
+
+.board__row--top .board__rank {
+  font-size: 18px;
+}
+
+.board__avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.board__who {
+  min-width: 0;
+  flex: 1;
+}
+
+.board__name {
+  font-weight: 650;
+  font-size: 14.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board__meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.board__total {
+  text-align: right;
+  flex: none;
+}
+
+.board__total b {
+  display: block;
+  font-size: 15px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.board__total span {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+.cheerbtn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--muted);
+  transition: transform 0.1s ease;
+}
+
+.cheerbtn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.cheerbtn:active:not(:disabled) {
+  transform: scale(0.93);
+}
+
+.cheerbtn--on {
+  background: var(--warn-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cheerbtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.board__row--ghost .board__avatar,
+.board__row--ghost .board__name {
+  opacity: 0.55;
+}
+
+/* --------------------------------------------------------- group goal */
+
+.goal__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.goal__title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.goal__pct {
+  font-size: 21px;
+  font-weight: 750;
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+
+.goalbar {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.goalbar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand), var(--accent));
+  transition: width 0.5s ease;
+}
+
+.goal__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* --------------------------------------------------------------- toast */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 40;
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: var(--shadow-lift);
+}
+
+.toast[hidden] {
+  display: none;
+}
+
+/* -------------------------------------------------------------- dialog */
+
+dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lift);
+}
+
+dialog::backdrop {
+  background: rgba(8, 10, 15, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.dialog__body {
+  padding: 20px;
+}
+
+.dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.dialog__head h2 {
+  font-size: 17px;
+}
+
+.closebtn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.closebtn:hover {
+  background: var(--surface-2);
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.field input:focus {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+  background: var(--surface);
+}
+
+.avatarpicker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  gap: 6px;
+}
+
+.avatarpicker button {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  font-size: 21px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  transition: transform 0.1s ease;
+}
+
+.avatarpicker button:hover {
+  transform: scale(1.1);
+}
+
+.avatarpicker button[aria-pressed='true'] {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+
+.dialog__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.dialog__actions .btn {
+  flex: 1;
+}
+
+.formerror {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: #fdecea;
+  border: 1px solid #f5c6c2;
+  color: #922b21;
+  font-size: 13px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .formerror {
+    background: #2c1614;
+    border-color: #5c2b26;
+    color: #f0a9a2;
+  }
+}
+
+.formerror[hidden] {
+  display: none;
+}
+
+/* --------------------------------------------------------- login page */
+
+.authpage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+
+.authcard {
+  width: min(400px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lift);
+  padding: 26px;
+}
+
+.authcard__brand {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.authcard__brand .flag {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.authcard__brand h1 {
+  margin-top: 8px;
+  font-size: 21px;
+}
+
+.authcard__brand p {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tabs {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  margin-bottom: 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.tabs button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 8px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.tabs button[aria-selected='true'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.demo-note {
+  margin: 16px 0 0;
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.demo-note code {
+  font-size: 12px;
+  color: var(--text);
+}
+
+/* --------------------------------------------------------------- phone */
+
+@media (max-width: 640px) {
+  :root {
+    --gutter-w: 112px;
+    --lane-h: 50px;
+  }
+
+  .topbar {
+    padding: 10px 14px;
+  }
+
+  main {
+    padding: 14px 14px 56px;
+  }
+
+  .card {
+    padding: 15px;
+  }
+
+  /* Let the total drop onto its own line rather than squeezing the name
+     into a two-line wrap beside it. */
+  .mystatus__top {
+    flex-wrap: wrap;
+  }
+
+  .mystatus__total {
+    margin-left: 62px; /* line up under the name, past the avatar */
+    text-align: left;
+  }
+
+  .mystatus__total b {
+    font-size: 21px;
+  }
+
+  /* Reclaim the rank column for the name -- rank is already in the
+     leaderboard, and a readable name matters more on the track. */
+  .gutter-row__rank {
+    display: none;
+  }
+
+  /* Seven day-boxes across a phone are unusably narrow, so wrap to two rows. */
+  .daygrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .board__meta {
+    display: none;
+  }
+
+  .board__row {
+    gap: 8px;
+    padding: 9px 4px;
+  }
+}
